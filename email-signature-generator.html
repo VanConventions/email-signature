@@ -1,0 +1,443 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Email Signature Generator</title>
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 32rem;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: bold;
+            color: #374151;
+            margin-bottom: 0.25rem;
+        }
+        .radio-group label {
+            font-weight: normal; /* Remove bold from venue labels */
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            font-size: 0.875rem;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+        }
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        input[type="radio"] {
+            margin-right: 0.5rem;
+        }
+        button {
+            width: 100%;
+            background-color: #4f46e5;
+            color: #ffffff;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            border: none;
+            font-size: 1rem; /* Increased by 2px from 0.875rem */
+            font-weight: bold; /* Made bold */
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #4338ca;
+        }
+        .preview {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+        }
+        .signature {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            color: #000000;
+        }
+        .signature table {
+            border-collapse: collapse;
+            width: 100%;
+            max-width: 375px;
+        }
+        .signature td {
+            vertical-align: top;
+        }
+        .signature a {
+            text-decoration: none;
+        }
+        .copy-button {
+            background-color: #16a34a;
+            margin-top: 1rem;
+        }
+        .copy-button:hover {
+            background-color: #15803d;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Email Signature Generator</h1>
+        <form id="signatureForm">
+            <div class="form-group">
+                <label>Venue</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="venue" value="bcplace" checked> BC Place</label>
+                    <label><input type="radio" name="venue" value="vcc"> Vancouver Convention Centre</label>
+                    <label><input type="radio" name="venue" value="pavco"> PavCo Shared Services</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="fullName" required placeholder="Jane Doe">
+            </div>
+            <div class="form-group">
+                <label>Post-Nominal Letters</label>
+                <input type="text" id="postNominal" placeholder="(CPA, PhD, etc)">
+            </div>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="title" placeholder="Manager">
+            </div>
+            <div class="form-group">
+                <label>Pronouns</label>
+                <input type="text" id="pronouns" placeholder="She/Her, He/Him, They/Them, etc">
+            </div>
+            <div class="form-group">
+                <label>Direct Phone</label>
+                <input type="text" id="directPhone" pattern="[0-9\s]*" title="Only numbers and spaces allowed" placeholder="888 888 8888">
+            </div>
+            <div class="form-group">
+                <label>Mobile Phone</label>
+                <input type="text" id="mobilePhone" pattern="[0-9\s]*" title="Only numbers and spaces allowed" placeholder="888 888 8888">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="text" id="email" value="">
+            </div>
+            <button type="submit">Generate Signature</button>
+        </form>
+        <div id="signaturePreview" class="preview hidden">
+            <div id="signatureOutput" class="signature"></div>
+            <button id="copyButton" class="copy-button">Copy Signature</button>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const venueConfigs = {
+                vcc: {
+                    primaryColor: '#002859',
+                    borderColor: '#00aeef',
+                    logo: {
+                        url: 'https://assets.vancouverconventioncentre.com/signatures/vancouver-convention-centre-pavco-logos.png',
+                        width: 300,
+                        alt: 'Vancouver Convention Centre and PavCo Logos'
+                    },
+                    address: '1055 Canada Pl, Vancouver, BC V6C 0C3, Canada',
+                    links: `<a href="https://www.vancouverconventioncentre.com" style="color: #002859; text-decoration: none;">vancouverconventioncentre.com</a>`,
+                    social: `<a href="https://www.linkedin.com/company/vancouver-convention-centre" style="color: #002859; text-decoration: none;">LinkedIn</a> | 
+                            <a href="https://www.facebook.com/vancouverconventioncentre" style="color: #002859; text-decoration: none;">Facebook</a> | 
+                            <a href="https://twitter.com/vanconventions" style="color: #002859; text-decoration: none;">X (Twitter)</a> | 
+                            <a href="https://www.instagram.com/vanconventions" style="color: #002859; text-decoration: none;">Instagram</a>`,
+                    footer: 'Vancouver Convention Centre is a division of PavCo, a Crown Corporation of the Province of British Columbia.',
+                    domain: '@vancouverconventioncentre.com'
+                },
+                pavco: {
+                    primaryColor: '#00538e',
+                    borderColor: '#b71f56',
+                    logo: {
+                        url: 'https://assets.vancouverconventioncentre.com/signatures/pavco-vcc-bc-place-logos.png',
+                        width: 375,
+                        alt: 'PavCo, Vancouver Convention Centre, and BC Place Logos'
+                    },
+                    address: '200 - 999 Canada Pl, Vancouver, BC V6C 3C1, Canada',
+                    links: `<a href="https://www.bcpavco.com" style="color: #00538e; text-decoration: none;">bcpavco.com</a> | 
+                            <a href="https://www.vancouverconventioncentre.com" style="color: #00538e; text-decoration: none;">vancouverconventioncentre.com</a> | 
+                            <a href="https://www.bcplace.com" style="color: #00538e; text-decoration: none;">bcplace.com</a>`,
+                    social: '',
+                    footer: 'B.C. Pavilion Corporation (PavCo) is the proud owner and operator of BC Place Stadium and the Vancouver Convention Centre.',
+                    domain: '@bcpavco.com'
+                },
+                bcplace: {
+                    primaryColor: '#043a74',
+                    borderColor: '#00aeef',
+                    logo: {
+                        url: 'https://assets.vancouverconventioncentre.com/signatures/bcplace-pavco-logos.png',
+                        width: 330,
+                        alt: 'BC Place and PavCo Logos'
+                    },
+                    address: '777 Pacific Blvd, Vancouver, BC V6B 4Y8, Canada',
+                    links: `<a href="https://www.bcplace.com" style="color: #043a74; text-decoration: none;">bcplace.com</a>`,
+                    social: `<a href="https://ca.linkedin.com/company/bc-place" style="color: #043a74; text-decoration: none;">LinkedIn</a> | 
+                            <a href="https://www.facebook.com/BCPlaceStadium" style="color: #043a74; text-decoration: none;">Facebook</a> | 
+                            <a href="https://twitter.com/bcplace" style="color: #043a74; text-decoration: none;">X (Twitter)</a> | 
+                            <a href="https://instagram.com/bcplacestadium" style="color: #043a74; text-decoration: none;">Instagram</a>`,
+                    footer: 'BC Place stadium is a division of PavCo, a Crown Corporation of the Province of British Columbia.',
+                    domain: '@bcplace.com'
+                }
+            };
+
+            function formatPhoneNumber(value) {
+                const digits = value.replace(/\D/g, '');
+                if (digits.length > 6) {
+                    return digits.replace(/(\d{3})(\d{3})(\d{1,4})/, '$1 $2 $3');
+                } else if (digits.length > 3) {
+                    return digits.replace(/(\d{3})(\d{1,3})/, '$1 $2');
+                }
+                return digits;
+            }
+
+            ['directPhone', 'mobilePhone'].forEach(id => {
+                const input = document.getElementById(id);
+                input.addEventListener('input', function() {
+                    this.value = formatPhoneNumber(this.value);
+                });
+            });
+
+            function capitalizeWords(str) {
+                return str.split('/').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('/').replace(/ /g, '');
+            }
+
+            // Update email domain in input field when venue changes
+            const emailInput = document.getElementById('email');
+            document.querySelectorAll('input[name="venue"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const venue = this.value;
+                    const config = venueConfigs[venue];
+                    const localPart = emailInput.value.split('@')[0] || '';
+                    emailInput.value = localPart + config.domain;
+                });
+            });
+
+            // Initial email setup with default venue domain
+            emailInput.value = venueConfigs['bcplace'].domain; // Default to BC Place domain
+
+            document.getElementById('signatureForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const venue = document.querySelector('input[name="venue"]:checked').value;
+                const config = venueConfigs[venue];
+                const fullName = document.getElementById('fullName').value.trim();
+                const postNominal = document.getElementById('postNominal').value.trim();
+                const title = document.getElementById('title').value.trim();
+                const pronouns = capitalizeWords(document.getElementById('pronouns').value.trim());
+                const directPhone = formatPhoneNumber(document.getElementById('directPhone').value.trim());
+                const mobilePhone = formatPhoneNumber(document.getElementById('mobilePhone').value.trim());
+                const emailLocal = emailInput.value.split('@')[0].trim();
+                const email = emailLocal ? emailLocal + config.domain : config.domain;
+
+                const signature = `
+                    <table cellspacing="0" cellpadding="0" style="width: 375px; mso-line-height-rule: exactly; border-collapse: collapse;">
+                        <tbody style="mso-line-height-rule: exactly; border-collapse: collapse;">
+                            <tr>
+                                <td valign="top" style="width: 375px; line-height: 15px;" colspan="3">
+                                    <p style="margin: 0.1px;">
+                                        <span style="font-weight: bolder; color: ${config.primaryColor}; font-family: Arial; font-size: 14px;">
+                                            ${fullName}${postNominal ? '<span style="font-size: 12px; font-weight: normal;"> ' + postNominal + '</span>' : ''}
+                                        </span>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; line-height: 15px;" colspan="3">
+                                    <p style="margin: 0.1px; font-weight: bolder; font-size: 13px; color: #7e7e7e; font-family: Arial;">
+                                        ${title || ''}
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; line-height: 14px;" colspan="3">
+                                    <p style="margin: 0.1px; font-size: 12px; color: #7e7e7e; font-family: Arial;">
+                                        ${pronouns || ''}
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 12px; height: 19px; margin: 0.1px;" colspan="1" rowspan="1"></td>
+                                <td valign="top" style="width: 34px; height: 19px; margin: 0.1px;" colspan="1" rowspan="2"></td>
+                                <td valign="top" style="width: 329px; height: 19px; margin: 0.1px;" colspan="1" rowspan="2"></td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 12px; height: 16px; margin: 0.1px; font-size: 1px; border-width: 2px 0px 0px; border-left-style: initial; border-color: ${config.borderColor} #ffffff #ffffff; border-right-style: initial; border-top-style: solid; border-bottom-style: initial;" colspan="1"></td>
+                            </tr>
+                            <tr>
+                                <td valign="baseline" style="width: 46px; line-height: 16px; color: #7e7e7e; font-family: Arial; font-size: 8.5px; letter-spacing: 0.7px;" colspan="2">
+                                    <p style="margin: 0.1px;">${directPhone ? 'DIRECT:' : ''}</p>
+                                </td>
+                                <td valign="baseline" style="width: 329px; font-family: Arial; font-size: 12px; line-height: 16px; color: ${config.primaryColor}; text-decoration: none !important;">
+                                    <p style="margin: 0.1px;">${directPhone || ''}</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="baseline" style="width: 46px; line-height: 16px; color: #7e7e7e; font-family: Arial; font-size: 8.5px; letter-spacing: 0.7px;" colspan="2">
+                                    <p style="margin: 0.1px;">${mobilePhone ? 'MOBILE:' : ''}</p>
+                                </td>
+                                <td valign="baseline" style="width: 329px; font-family: Arial; font-size: 12px; line-height: 16px; color: ${config.primaryColor}; text-decoration: none !important;">
+                                    <p style="margin: 0.1px;">${mobilePhone || ''}</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="baseline" style="width: 46px; line-height: 16px; color: #7e7e7e; font-family: Arial; font-size: 8.5px; letter-spacing: 0.7px;" colspan="2">
+                                    <p style="margin: 0.1px;">EMAIL:</p>
+                                </td>
+                                <td valign="baseline" style="width: 329px; font-family: Arial; font-size: 12px; line-height: 16px;">
+                                    <p style="margin: 0.1px; text-decoration: none !important; color: ${config.primaryColor};">
+                                        <a style="color: ${config.primaryColor}; text-decoration: none !important;" href="mailto:${email}">${email}</a>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; height: 37px;" colspan="3"></td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; margin: 0;" colspan="3">
+                                    <p style="margin: 0.1px;">
+                                        <img src="${config.logo.url}" border="0" alt="${config.logo.alt}" style="width: ${config.logo.width}px; display: block; margin: 0.1px; padding: 0;" width="${config.logo.width}">
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; height: 13px;" colspan="3"></td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; line-height: 16.5px; font-family: Arial; font-size: 12px; text-decoration: none !important; color: ${config.primaryColor};" colspan="3">
+                                    <p style="margin: 0.1px; text-decoration: none !important; color: ${config.primaryColor};">
+                                        ${config.address}
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; line-height: 16.5px; font-family: Arial; font-size: 12px; color: ${config.primaryColor};" colspan="3">
+                                    <p style="margin: 0.1px;">
+                                        ${config.links}
+                                    </p>
+                                </td>
+                            </tr>
+                            ${config.social ? `
+                            <tr>
+                                <td valign="top" style="width: 375px; line-height: 16.5px; font-family: Arial; font-size: 12px; color: ${config.primaryColor};" colspan="3">
+                                    <p style="margin: 0.1px;">
+                                        ${config.social}
+                                    </p>
+                                </td>
+                            </tr>` : ''}
+                            <tr>
+                                <td valign="top" style="width: 375px; height: 22px;" colspan="3"></td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; line-height: 15px; color: ${config.primaryColor}; font-family: Arial; font-size: 10.5px;" colspan="3">
+                                    <p style="margin: 0.1px;">
+                                        Our venues and offices are located on traditional, ancestral and unceded territories of the xʷməθkwəy̓əm (Musqueam), Sḵwx̱wú7mesh (Squamish) and səlilwətaɬ (Tsleil-Waututh) Nations.
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; height: 16px;" colspan="3"></td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; height: 16px; border-width: 2px 0px 0px; border-left-style: initial; border-color: #cbcbcb #ffffff #ffffff; border-right-style: initial; border-top-style: solid; border-bottom-style: initial;" colspan="3"></td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="width: 375px; line-height: 15px; color: #7e7e7e; font-family: Arial; font-size: 10.5px;" colspan="3">
+                                    <p style="margin: 0.1px;">
+                                        ${config.footer}<br><br>
+                                        <i>This email may be privileged and confidential. Confidentiality and privilege are not lost by this email having been sent to the wrong recipient. If you received this email in error, please contact the sender immediately. Any use of this email by an unintended recipient is strictly prohibited.</i>
+                                    </p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+
+                console.log('Generated Signature HTML:', signature); // Debugging log
+                const preview = document.getElementById('signaturePreview');
+                const output = document.getElementById('signatureOutput');
+                const copyButton = document.getElementById('copyButton');
+                output.innerHTML = signature;
+                preview.classList.remove('hidden');
+                copyButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                document.getElementById('copyButton').onclick = function() {
+                    const range = document.createRange();
+                    range.selectNodeContents(output);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    try {
+                        document.execCommand('copy');
+                        alert('Signature copied to clipboard!');
+                    } catch (err) {
+                        console.error('Copy failed: ', err);
+                        alert('Failed to copy signature. Please select and copy manually.');
+                    }
+                    selection.removeAllRanges();
+                };
+            });
+        });
+    </script>
+</body>
+</html>
